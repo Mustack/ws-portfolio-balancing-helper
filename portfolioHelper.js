@@ -17,43 +17,6 @@ function log(...msg) {
   console.log("PortfolioHelper: ", ...msg);
 }
 
-class Security {
-  constructor(ticker, domContainer, targetProportion) {
-    this.ticker = ticker;
-    this.domContainer = domContainer;
-    this.targetProportion = targetProportion;
-    const { price, totalValue } = getPriceAndTotalValueFromContainer(
-      domContainer
-    );
-    this.price = price;
-    this.totalValue = totalValue;
-    this.numOfSharesElm = getNumberOfSharesDomElm(domContainer);
-  }
-
-  getProportionOfPortfolio(totalPortfolioValue) {
-    return this.totalValue / totalPortfolioValue;
-  }
-
-  addProportionOfPortfolioToDOM(totalPortfolioValue) {
-    addToNumOfSharesElmText(
-      `\n${(this.getProportionOfPortfolio(totalPortfolioValue) * 100).toFixed(
-        2
-      )}%`,
-      this.numOfSharesElm
-    );
-  }
-
-  getDifferenceOfTargetProportionToActualProportion(totalPortfolioValue) {
-    return (
-      this.getProportionOfPortfolio(totalPortfolioValue) - this.targetProportion
-    );
-  }
-
-  addSharesToBuyToDom(numOfSharesToBuy) {
-    addToNumOfSharesElmText(`\nBuy ${numOfSharesToBuy}`, this.numOfSharesElm);
-  }
-}
-
 function findAncestor(el, sel) {
   while (
     (el = el.parentElement) &&
@@ -126,6 +89,43 @@ function getNumberOfSharesDomElm(ctn) {
   return numOfSharesElm;
 }
 
+class Security {
+  constructor(ticker, domContainer, targetProportion) {
+    this.ticker = ticker;
+    this.domContainer = domContainer;
+    this.targetProportion = targetProportion;
+    const { price, totalValue } = getPriceAndTotalValueFromContainer(
+      domContainer
+    );
+    this.price = price;
+    this.totalValue = totalValue;
+    this.numOfSharesElm = getNumberOfSharesDomElm(domContainer);
+  }
+
+  getProportionOfPortfolio(totalPortfolioValue) {
+    return this.totalValue / totalPortfolioValue;
+  }
+
+  addProportionOfPortfolioToDOM(totalPortfolioValue) {
+    addToNumOfSharesElmText(
+      `\n${(this.getProportionOfPortfolio(totalPortfolioValue) * 100).toFixed(
+        2
+      )}%`,
+      this.numOfSharesElm
+    );
+  }
+
+  getDifferenceOfTargetProportionToActualProportion(totalPortfolioValue) {
+    return (
+      this.getProportionOfPortfolio(totalPortfolioValue) - this.targetProportion
+    );
+  }
+
+  addSharesToBuyToDom(numOfSharesToBuy) {
+    addToNumOfSharesElmText(`\nBuy ${numOfSharesToBuy}`, this.numOfSharesElm);
+  }
+}
+
 function getTotalPortfolioValue(securities) {
   return securities.reduce((acc, sec) => acc + sec.totalValue, 0);
 }
@@ -180,18 +180,21 @@ function calculateCostToRebalanceWithoutSelling(
 }
 
 function getAvailableCash() {
-  let availableCash;
-
-  document
+  const entries = document
     .querySelector('[data-qa="wstrade-account-funds-card"]')
     .querySelectorAll("p")
-    .forEach((elm) => {
-      if (elm.innerHTML.startsWith("$")) {
-        availableCash = extractDollarNumberInCentsFromText(elm.innerHTML);
-      }
-    });
+    .entries();
 
-  return availableCash;
+  let entry = entries.next();
+  while (!entry.done) {
+    const [, elm] = entry.value;
+    if (elm.innerText.startsWith("$")) {
+      return extractDollarNumberInCentsFromText(elm.innerText);
+    }
+    entry = entries.next();
+  }
+
+  throw new Error("Could not find Available Cash");
 }
 
 function calculateSuggestedNumberOfSharesToBuyToStayBalanced(
@@ -252,6 +255,7 @@ async function run() {
 
     const availableCash = getAvailableCash();
 
+    log(availableCash);
     if (availableCash < costToRebalanceWithoutSelling) {
       log(
         `We need $${(costToRebalanceWithoutSelling - availableCash) /
